@@ -15,13 +15,16 @@ vi.mock("#/api/organization-service/organization-service.api", () => ({
   },
 }));
 
+const mockUseConfig = vi.fn(() => ({
+  data: {
+    slack_enabled: true,
+    email_enabled: true,
+    feature_flags: { enable_litellm: true },
+  },
+}));
+
 vi.mock("#/hooks/query/use-config", () => ({
-  useConfig: () => ({
-    data: {
-      slack_enabled: true,
-      email_enabled: true,
-    },
-  }),
+  useConfig: () => mockUseConfig(),
 }));
 
 vi.mock("#/context/use-selected-organization", () => ({
@@ -116,6 +119,36 @@ describe("Budgets", () => {
       budgetResponse.users[0],
     );
     vi.mocked(organizationService.deleteBudgetOverride).mockResolvedValue();
+    mockUseConfig.mockReturnValue({
+      data: {
+        slack_enabled: true,
+        email_enabled: true,
+        feature_flags: { enable_litellm: true },
+      },
+    });
+  });
+
+  it("shows a 'please enable LiteLLM' placeholder and skips the fetch when the feature flag is off", async () => {
+    mockUseConfig.mockReturnValue({
+      data: {
+        slack_enabled: true,
+        email_enabled: true,
+        feature_flags: { enable_litellm: false },
+      },
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <Budgets />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("Please enable LiteLLM to use this feature.");
+    expect(organizationService.getBudgetSettings).not.toHaveBeenCalled();
   });
 
   it("adds and removes thresholds, then saves updated settings", async () => {

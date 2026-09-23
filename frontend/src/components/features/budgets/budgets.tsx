@@ -5,6 +5,7 @@ import { organizationService } from "#/api/organization-service/organization-ser
 import { useSelectedOrganizationId } from "#/context/use-selected-organization";
 import { useConfig } from "#/hooks/query/use-config";
 import { useDebounce } from "#/hooks/use-debounce";
+import { FeatureDisabledScreen } from "#/components/shared/feature-disabled-screen";
 import { BUDGET_TABS, BudgetTab, USERS_PER_PAGE } from "./budgets-constants";
 import {
   DefaultBudgetsTab,
@@ -18,6 +19,7 @@ export function Budgets() {
   const queryClient = useQueryClient();
 
   const { data: config } = useConfig();
+  const litellmEnabled = config?.feature_flags?.enable_litellm ?? true;
   const slackIntegrationEnabled = Boolean(config?.slack_enabled);
   const [usersPage, setUsersPage] = useState(1);
 
@@ -48,7 +50,7 @@ export function Budgets() {
         usersSearch: usersSearch || undefined,
         usersStatus,
       }),
-    enabled: !!organizationId,
+    enabled: !!organizationId && litellmEnabled,
   });
 
   useEffect(() => {
@@ -361,6 +363,10 @@ export function Budgets() {
     if (!organizationId) return;
     deleteOverride.mutate(userId);
   };
+
+  if (!litellmEnabled) {
+    return <FeatureDisabledScreen title="Budgets" />;
+  }
 
   if (!organizationId) {
     return (
